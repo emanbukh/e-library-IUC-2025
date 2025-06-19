@@ -1,0 +1,53 @@
+# Koha Docker Setup Gitignore
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Docker volumes and data
+data/
+volumes/
+mariadb_data/
+esdata/
+koha_data/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Koha specific
+/koha/
+/koha-testing-docker/
+
+# Backup files
+*.bak
+*.backup
+
+# SSL certificates
+*.pem
+*.key
+*.crt
+ssl/
+
+# Database dumps
+*.sql
+*.dump
+
+# Node modules (if any)
+node_modules/ 

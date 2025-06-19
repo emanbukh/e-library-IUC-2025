@@ -1,0 +1,127 @@
+version: "3.8"
+
+services:
+  db:
+    image: mariadb:10.5
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-koha_root_password}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-koha}
+      MYSQL_USER: ${MYSQL_USER:-kohauser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-kohapass}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - kohanet
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-p$$MYSQL_ROOT_PASSWORD",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  es:
+    image: koha/elasticsearch-icu:7.x
+    restart: unless-stopped
+    environment:
+      - cluster.name=docker-cluster
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    mem_limit: 2g
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    networks:
+      - kohanet
+    healthcheck:
+      test:
+        ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  koha:
+    image: koha/koha-testing:${KOHA_IMAGE:-main}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      es:
+        condition: service_healthy
+    cap_add:
+      - ALL
+    volumes:
+      - koha_data:/var/lib/koha
+      - koha_logs:/var/log/koha
+    env_file:
+      - .env.production
+    environment:
+      KOHA_INSTANCE: ${KOHA_INSTANCE:-library}
+      KOHA_DB_HOST: db
+      KOHA_DB_NAME: ${MYSQL_DATABASE:-koha}
+      KOHA_DB_USER: ${MYSQL_USER:-kohauser}
+      KOHA_DB_PASS: ${MYSQL_PASSWORD:-kohapass}
+      KOHA_ELASTICSEARCH: yes
+      ELASTIC_SERVER: es:9200
+      KOHA_DOMAIN: ${KOHA_DOMAIN:-.localhost}
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    networks:
+      kohanet:
+        aliases:
+          - "${KOHA_INSTANCE}${KOHA_DOMAIN}"
+    ports:
+      - "${KOHA_OPAC_PORT:-8080}:8080"
+      - "${KOHA_INTRANET_PORT:-8081}:8081"
+
+  memcached:
+    image: memcached:latest
+    restart: unless-stopped
+    command: memcached -m 128m
+    networks:
+      - kohanet
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-koha}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-koha}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - kohanet
+    ports:
+      - "${RABBITMQ_PORT:-15672}:15672"
+
+volumes:
+  mariadb_data:
+    driver: local
+  esdata:
+    driver: local
+  koha_data:
+    driver: local
+  koha_logs:
+    driver: local
+  rabbitmq_data:
+    driver: local
+
+networks:
+  kohanet:
+    driver: bridge
