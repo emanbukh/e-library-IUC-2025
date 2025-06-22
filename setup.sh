@@ -1,109 +1,87 @@
 #!/bin/bash
 
-# Koha Docker Setup Script
-# This script automates the installation of Koha with Elasticsearch
+# Koha Git Deployment Setup Script
+# This script helps you set up Koha using Git deployment
 
-set -e  # Exit on any error
+set -e
 
-echo "🚀 Starting Koha Docker Setup..."
-
-# Colors for output
-RED='\033[0;31m'
+# Colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+BLUE='\033[0;34m'
+RED='\033[0;31m'
+NC='\033[0m'
 
-# Function to print colored output
-print_status() {
-    echo -e "${GREEN}[INFO]${NC} $1"
-}
+echo -e "${BLUE}🚀 Koha Git Deployment Setup${NC}"
+echo "=================================="
+echo ""
 
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-# Check if Docker is running
-if ! docker info > /dev/null 2>&1; then
-    print_error "Docker is not running. Please start Docker Desktop and try again."
-    exit 1
+# Check if git is installed
+if ! command -v git &> /dev/null; then
+    echo -e "${YELLOW}📦 Installing Git...${NC}"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS
+        brew install git
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        # Linux
+        sudo apt update && sudo apt install -y git
+    else
+        echo -e "${YELLOW}⚠️  Please install Git manually${NC}"
+        exit 1
+    fi
 fi
 
-# Check if we're in the right directory
-if [ ! -f "docker-compose.yml" ]; then
-    print_error "Please run this script from the koha-testing-docker directory"
-    exit 1
+# Check if we're in a git repository
+if [ ! -d ".git" ]; then
+    echo -e "${YELLOW}📁 Initializing Git repository...${NC}"
+    git init
+    git remote add origin https://github.com/emanbukh/e-library-IUC-2025.git
 fi
 
-# Set environment variables
-export PROJECTS_DIR=$(pwd)/..
-export SYNC_REPO=$PROJECTS_DIR/koha
-export KTD_HOME=$PROJECTS_DIR/koha-testing-docker
-export PATH=$PATH:$KTD_HOME/bin
-export LOCAL_USER_ID=$(id -u)
+# Make scripts executable
+echo -e "${YELLOW}🔧 Making scripts executable...${NC}"
+chmod +x deployment/koha-install.sh
+chmod +x deployment/scripts/backup.sh
+chmod +x deployment/scripts/update.sh
 
-print_status "Setting up environment variables..."
+# Create deployment branch
+echo -e "${YELLOW}🌿 Creating deployment branch...${NC}"
+git checkout -b deployment 2>/dev/null || git checkout deployment
 
-# Check if Koha source code exists
-if [ ! -d "../koha" ]; then
-    print_status "Cloning Koha source code..."
-    cd ..
-    git clone --branch main --single-branch https://git.koha-community.org/Koha-community/Koha.git koha
-    cd koha-testing-docker
-else
-    print_status "Koha source code already exists"
-fi
+# Add all files
+echo -e "${YELLOW}📝 Adding files to Git...${NC}"
+git add .
 
-# Configure environment
-if [ ! -f ".env" ]; then
-    print_status "Creating environment configuration..."
-    cp env/defaults.env .env
-    
-    # Enable Elasticsearch
-    sed -i '' 's/KOHA_ELASTICSEARCH=/KOHA_ELASTICSEARCH=yes/' .env
-    sed -i '' 's/KOHA_DOMAIN=.myDNSname.org/KOHA_DOMAIN=.localhost/' .env
-else
-    print_status "Environment configuration already exists"
-fi
+# Commit changes
+echo -e "${YELLOW}💾 Committing changes...${NC}"
+git commit -m "Setup Git-based deployment for Koha" || echo "No changes to commit"
 
-# Pull Docker images
-print_status "Pulling Docker images (this may take a while)..."
-./bin/ktd pull
-
-# Stop any existing containers
-print_status "Stopping any existing containers..."
-./bin/ktd down 2>/dev/null || true
-
-# Start services
-print_status "Starting Koha services..."
-./bin/ktd up -d
-
-# Wait for services to be ready
-print_status "Waiting for services to be ready..."
-sleep 30
-
-# Check if services are running
-if docker compose ps | grep -q "Up"; then
-    print_status "✅ Koha setup completed successfully!"
-    echo ""
-    echo "🌐 Access Koha at:"
-    echo "   Staff Interface: http://localhost:8081"
-    echo "   OPAC: http://localhost:8080"
-    echo ""
-    echo "🔑 Default login credentials:"
-    echo "   Username: koha"
-    echo "   Password: koha"
-    echo ""
-    echo "📚 Useful commands:"
-    echo "   View logs: ./bin/ktd --logs"
-    echo "   Stop services: ./bin/ktd down"
-    echo "   Access shell: ./bin/ktd --shell"
-    echo ""
-    print_status "Setup complete! 🎉"
-else
-    print_error "Some services failed to start. Check logs with: ./bin/ktd --logs"
-    exit 1
-fi 
+# Show setup options
+echo -e "${GREEN}✅ Setup completed successfully!${NC}"
+echo ""
+echo -e "${BLUE}🎯 Choose your deployment method:${NC}"
+echo ""
+echo -e "${YELLOW}🏠 LOCAL DEVELOPMENT:${NC}"
+echo "1. Install MAMP/XAMPP for local web server"
+echo "2. Follow LOCAL_SETUP.md for detailed instructions"
+echo "3. Access at: http://localhost/koha/opac"
+echo ""
+echo -e "${YELLOW}🌐 PRODUCTION SERVER:${NC}"
+echo "1. Follow QUICK_START_GIT.md for server setup"
+echo "2. Use GIT_DEPLOYMENT.md for detailed instructions"
+echo "3. Access at: http://yourdomain.com/koha/opac"
+echo ""
+echo -e "${BLUE}📋 Next Steps:${NC}"
+echo "1. Push to GitHub: git push origin deployment"
+echo "2. Choose local or server setup"
+echo "3. Follow the appropriate guide"
+echo ""
+echo -e "${BLUE}📚 Documentation:${NC}"
+echo "- Local Setup: LOCAL_SETUP.md"
+echo "- Quick Start: QUICK_START_GIT.md"
+echo "- Full Guide: GIT_DEPLOYMENT.md"
+echo "- Repository: https://github.com/emanbukh/e-library-IUC-2025.git"
+echo ""
+echo -e "${GREEN}🎉 Ready for Git-based deployment!${NC}"
+echo ""
+echo -e "${YELLOW}💡 Tip: For local development, install MAMP and follow LOCAL_SETUP.md${NC}" 
